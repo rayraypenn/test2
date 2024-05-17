@@ -1,0 +1,11 @@
+**/build
+**/.waf*
+**/.lock-waf_linux_build
+**/.lock-waf_darwin_build
+**/.lock-wscript
+**/.vscode
+**/.idea
+**/__pycache__
+**/*.pyc
+**/.DS_Store
+*.gz
