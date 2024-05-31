@@ -219,8 +219,7 @@ private:
    * Useful when printing out debugging messages etc.
    *
    * \param ipv4Address IP address of node.
-   */
-  virtual std::string ReverseLookup(Ipv4Address ipv4Address);
+   */  virtual std::string ReverseLookup(Ipv4Address ipv4Address);
 
   // Status
   void DumpLSA();
@@ -268,3 +267,5 @@ private:
 };
 
 #endif
+
+

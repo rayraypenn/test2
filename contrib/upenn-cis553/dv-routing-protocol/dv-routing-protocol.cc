@@ -64,7 +64,6 @@ DVRoutingProtocol::GetTypeId(void)
 DVRoutingProtocol::DVRoutingProtocol()
     : m_auditPingsTimer(Timer::CANCEL_ON_DESTROY)
 {
-
   m_currentSequenceNumber = 0;
   // Setup static routing
   m_staticRouting = Create<Ipv4StaticRouting>();
@@ -344,7 +343,7 @@ void DVRoutingProtocol::DumpNeighbors()
     {
       // Example invocation: checkNeighborTableEntry(uint32_t nodeNumber, Ipv4Address neighborAddr, Ipv4Address interfaceAddr)
       // Replace with actual function as needed
-      // checkNeighborTableEntry(m_addressNodeMap[neighbor.first], neighbor.first, addr);
+      checkNeighborTableEntry(m_addressNodeMap[neighbor.first], neighbor.first, addr);
     }
   }
 }

@@ -215,7 +215,6 @@ void LSRoutingProtocol::SendHello()
 void LSRoutingProtocol::ProcessHelloReq(LSMessage lsMessage)
 {
   Ipv4Address neighborAddress = lsMessage.GetOriginatorAddress();
-  Ipv4Address interfaceAddress = lsMessage.GetHelloReq().sourceAddress;
 
   // Check if the neighbor is already known
   bool isNewNeighbor = true;
@@ -248,7 +247,6 @@ void LSRoutingProtocol::ProcessHelloReq(LSMessage lsMessage)
 void LSRoutingProtocol::ProcessHelloRsp(LSMessage lsMessage)
 {
   Ipv4Address neighborAddress = lsMessage.GetOriginatorAddress();
-  Ipv4Address interfaceAddress = lsMessage.GetHelloRsp().sourceAddress;
 
   // Check if the neighbor is already known
   bool isNewNeighbor = true;
@@ -288,6 +286,32 @@ void LSRoutingProtocol::DumpNeighbors()
       // checkNeighborTableEntry(m_addressNodeMap[addr], addr, m_mainAddress);
     }
   }
+}
+
+void LSRoutingProtocol::DumpRoutingTable()
+{
+  STATUS_LOG(std::endl
+             << "**************** Route Table ********************" << std::endl
+             << "DestNumber\t\tDestAddr\t\tNextHopNumber\t\tNextHopAddr\t\tInterfaceAddr\t\tCost");
+
+  PRINT_LOG("");
+
+  // Example for autograding (if applicable)
+  // for (const auto& entry : m_routingTable) {
+  //   checkRouteTableEntry(entry.destNumber, entry.destAddr, entry.nextHopNumber, entry.nextHopAddr, entry.interfaceAddr, entry.cost);
+  // }
+}
+
+void LSRoutingProtocol::PrintRoutingTable(ns3::Ptr<ns3::OutputStreamWrapper> stream, ns3::Time::Unit unit) const
+{
+  std::ostream* os = stream->GetStream();
+  *os << "Routing table for node " << m_mainAddress << std::endl;
+  *os << "Destination\t\tNextHop\t\tInterface\t\tCost" << std::endl;
+
+  // Example logic (you need to replace it with actual routing table entries)
+  // for (const auto& entry : m_routingTable) {
+  //   *os << entry.destAddr << "\t\t" << entry.nextHopAddr << "\t\t" << entry.interfaceAddr << "\t\t" << entry.cost << std::endl;
+  // }
 }
 
 Ptr<Ipv4Route>

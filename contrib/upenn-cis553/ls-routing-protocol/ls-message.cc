@@ -87,10 +87,10 @@ LSMessage::Print (std::ostream &os) const
   switch (m_messageType)
     {
     case PING_REQ:
-      m_message.pingReq.Print (os);
+      m_message.pingReq.Print(os);
       break;
     case PING_RSP:
-      m_messxage.pingRsp.Print (os);
+      m_message.pingRsp.Print(os);
       break;
       //added hello req print message 
     case HELLO_REQ:
