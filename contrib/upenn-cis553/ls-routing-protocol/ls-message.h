@@ -33,11 +33,13 @@ class LSMessage : public Header
     LSMessage();
     virtual ~LSMessage();
 
-    // TODO: Define extra message types in enum when needed
+    //added hello req/rsp message types
     enum MessageType
       {
       PING_REQ,
       PING_RSP,
+      HELLO_REQ,
+      HELLO_RSP
       };
 
     LSMessage(LSMessage::MessageType messageType, uint32_t sequenceNumber, uint8_t ttl, Ipv4Address originatorAddress);
@@ -127,11 +129,39 @@ class LSMessage : public Header
       std::string pingMessage;
       };
 
+     //inbound hello message 
+    struct HelloReq
+    {
+      //printing, getting serialize size, serialize, deserialize
+      void Print(std::ostream& os) const;
+      uint32_t GetSerializedSize(void) const;
+      void Serialize(Buffer::Iterator& start) const;
+      uint32_t Deserialize(Buffer::Iterator& start);
+      Ipv4Address sourceAddress;
+      //no additional payload
+    };
+
+    //ack message
+    struct HelloRsp
+    {
+            //printing, getting serialize size, serialize, deserialize
+      void Print(std::ostream& os) const;
+      uint32_t GetSerializedSize(void) const;
+      void Serialize(Buffer::Iterator& start) const;
+      uint32_t Deserialize(Buffer::Iterator& start);
+      Ipv4Address sourceAddress;
+            //no additional payload
+
+    };
+
+  //added message types to the struct
   private:
     struct
       {
       PingReq pingReq;
       PingRsp pingRsp;
+      HelloReq helloReq;
+      HelloRsp helloRsp;
       } m_message;
 
   public:
@@ -156,6 +186,16 @@ class LSMessage : public Header
      *  \param message Payload String
      */
     void SetPingRsp(Ipv4Address destinationAddress, std::string message);
+  
+
+    //hello getters/setter funcs
+    HelloReq GetHelloReq();
+    void SetHelloReq(Ipv4Address sourceAddress);
+
+    //hello ack getters/setter funcs
+    HelloRsp GetHelloRsp();
+    void SetHelloRsp(Ipv4Address sourceAddress);
+  
   }; // class LSMessage
 
 static inline std::ostream&

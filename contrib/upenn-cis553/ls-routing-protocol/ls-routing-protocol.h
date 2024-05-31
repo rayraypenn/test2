@@ -78,7 +78,6 @@ public:
    *
    * \param addressNodeMap Mapping.
    */
-
   virtual void SetAddressNodeMap(std::map<Ipv4Address, uint32_t> addressNodeMap);
 
   // Message Handling
@@ -87,7 +86,6 @@ public:
    *
    * \param socket Socket on which data is received.
    */
-
   void RecvLSMessage(Ptr<Socket> socket);
   void ProcessPingReq(LSMessage lsMessage);
   void ProcessPingRsp(LSMessage lsMessage);
@@ -240,6 +238,11 @@ protected:
    */
   bool IsOwnAddress(Ipv4Address originatorAddress);
 
+  // Neighbor discovery methods
+  void SendHello();
+  void ProcessHelloReq(LSMessage lsMessage);
+  void ProcessHelloRsp(LSMessage lsMessage);
+
 private:
   std::map<Ptr<Socket>, Ipv4InterfaceAddress> m_socketAddresses;
   Ptr<Socket> m_recvSocket; //!< Receiving socket.
@@ -259,5 +262,9 @@ private:
 
   // Ping tracker
   std::map<uint32_t, Ptr<PingRequest>> m_pingTracker;
+
+  // Neighbor table
+  std::map<Ipv4Address, std::vector<Ipv4Address>> m_neighbors; // Neighbor table
 };
+
 #endif

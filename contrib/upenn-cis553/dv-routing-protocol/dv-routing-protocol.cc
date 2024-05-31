@@ -178,7 +178,7 @@ void DVRoutingProtocol::DoInitialize()
       m_recvSocket->SetRecvCallback(MakeCallback(&DVRoutingProtocol::RecvDVMessage, this));
       if (m_recvSocket->Bind(inetAddr))
       {
-        NS_FATAL_ERROR("Failed to bind() LS socket");
+        NS_FATAL_ERROR("Failed to bind() DV socket");
       }
       m_recvSocket->SetRecvPktInfo(true);
       m_recvSocket->ShutdownSend();
@@ -200,6 +200,7 @@ void DVRoutingProtocol::DoInitialize()
 
   if (canRunDV)
   {
+    SendHello();
     AuditPings();
     NS_LOG_DEBUG("Starting DV on node " << m_mainAddress);
   }
@@ -337,7 +338,15 @@ void DVRoutingProtocol::DumpNeighbors()
   /* NOTE: For purpose of autograding, you should invoke the following function for each
   neighbor table entry. The output format is indicated by parameter name and type.
   */
-  //  checkNeighborTableEntry();
+  for (const auto &neighbor : m_neighbors)
+  {
+    for (const auto &addr : neighbor.second)
+    {
+      // Example invocation: checkNeighborTableEntry(uint32_t nodeNumber, Ipv4Address neighborAddr, Ipv4Address interfaceAddr)
+      // Replace with actual function as needed
+      // checkNeighborTableEntry(m_addressNodeMap[neighbor.first], neighbor.first, addr);
+    }
+  }
 }
 
 void DVRoutingProtocol::DumpRoutingTable()
@@ -392,6 +401,12 @@ void DVRoutingProtocol::RecvDVMessage(Ptr<Socket> socket)
   case DVMessage::PING_RSP:
     ProcessPingRsp(dvMessage);
     break;
+  case DVMessage::HELLO_REQ:
+    ProcessHelloReq(dvMessage);
+    break;
+  case DVMessage::HELLO_RSP:
+    ProcessHelloRsp(dvMessage);
+    break;
   default:
     ERROR_LOG("Unknown Message Type!");
     break;
@@ -434,6 +449,43 @@ void DVRoutingProtocol::ProcessPingRsp(DVMessage dvMessage)
       DEBUG_LOG("Received invalid PING_RSP!");
     }
   }
+}
+
+void DVRoutingProtocol::ProcessHelloReq(DVMessage dvMessage)
+{
+  // Check if we already have this neighbor
+  if (m_neighbors[dvMessage.GetOriginatorAddress()].empty())
+  {
+    m_neighbors[dvMessage.GetOriginatorAddress()].push_back(dvMessage.GetOriginatorAddress());
+    TRAFFIC_LOG("Added new neighbor: " << dvMessage.GetOriginatorAddress());
+  }
+
+  // Send Hello Response
+  DVMessage dvResp = DVMessage(DVMessage::HELLO_RSP, dvMessage.GetSequenceNumber(), m_maxTTL, m_mainAddress);
+  dvResp.SetHelloRsp(dvMessage.GetOriginatorAddress());
+  Ptr<Packet> packet = Create<Packet>();
+  packet->AddHeader(dvResp);
+  BroadcastPacket(packet);
+}
+
+void DVRoutingProtocol::ProcessHelloRsp(DVMessage dvMessage)
+{
+  // Check if we already have this neighbor
+  if (m_neighbors[dvMessage.GetOriginatorAddress()].empty())
+  {
+    m_neighbors[dvMessage.GetOriginatorAddress()].push_back(dvMessage.GetOriginatorAddress());
+    TRAFFIC_LOG("Added new neighbor: " << dvMessage.GetOriginatorAddress());
+  }
+}
+
+void DVRoutingProtocol::SendHello()
+{
+  uint32_t sequenceNumber = GetNextSequenceNumber();
+  DVMessage dvMessage = DVMessage(DVMessage::HELLO_REQ, sequenceNumber, m_maxTTL, m_mainAddress);
+  dvMessage.SetHelloReq(m_mainAddress);
+  Ptr<Packet> packet = Create<Packet>();
+  packet->AddHeader(dvMessage);
+  BroadcastPacket(packet);
 }
 
 bool DVRoutingProtocol::IsOwnAddress(Ipv4Address originatorAddress)

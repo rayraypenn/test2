@@ -61,8 +61,15 @@ LSMessage::GetSerializedSize (void) const
     case PING_RSP:
       size += m_message.pingRsp.GetSerializedSize ();
       break;
+      //added hello req/resp serialization sizes incrementer
+    case HELLO_REQ:
+      size += m_message.helloReq.GetSerializedSize();
+      break;
+    case HELLO_RSP:
+      size += m_message.helloRsp.GetSerializedSize();
+      break;
     default:
-      NS_ASSERT (false);
+    NS_ASSERT(false);
     }
   return size;
 }
@@ -83,7 +90,15 @@ LSMessage::Print (std::ostream &os) const
       m_message.pingReq.Print (os);
       break;
     case PING_RSP:
-      m_message.pingRsp.Print (os);
+      m_messxage.pingRsp.Print (os);
+      break;
+      //added hello req print message 
+    case HELLO_REQ:
+      m_message.helloReq.Print(os);
+      break;
+      //added hello ack print message 
+    case HELLO_RSP:
+      m_message.helloRsp.Print(os);
       break;
     default:
       break;
@@ -100,13 +115,20 @@ LSMessage::Serialize (Buffer::Iterator start) const
   i.WriteU8 (m_ttl);
   i.WriteHtonU32 (m_originatorAddress.Get ());
 
+  //added serialization methods for hello and hello ack 
   switch (m_messageType)
     {
     case PING_REQ:
-      m_message.pingReq.Serialize (i);
+      m_message.pingReq.Serialize(i);
       break;
     case PING_RSP:
-      m_message.pingRsp.Serialize (i);
+      m_message.pingRsp.Serialize(i);
+      break;
+    case HELLO_REQ:
+      m_message.helloReq.Serialize(i);
+      break;
+    case HELLO_RSP:
+      m_message.helloRsp.Serialize(i);
       break;
     default:
       NS_ASSERT (false);
@@ -125,13 +147,20 @@ LSMessage::Deserialize (Buffer::Iterator start)
 
   size = sizeof (uint8_t) + sizeof (uint32_t) + sizeof (uint8_t) + IPV4_ADDRESS_SIZE;
 
+  //added deserailize for hello and hello ack
   switch (m_messageType)
     {
     case PING_REQ:
-      size += m_message.pingReq.Deserialize (i);
+      size += m_message.pingReq.Deserialize(i);
       break;
     case PING_RSP:
-      size += m_message.pingRsp.Deserialize (i);
+      size += m_message.pingRsp.Deserialize(i);
+      break;
+    case HELLO_REQ:
+      size += m_message.helloReq.Deserialize(i);
+      break;
+  case HELLO_RSP:
+      size += m_message.helloRsp.Deserialize(i);
       break;
     default:
       NS_ASSERT (false);
@@ -252,8 +281,109 @@ LSMessage::GetPingRsp ()
 {
   return m_message.pingRsp;
 }
+// HELLO REQ //
 
-// TODO: You can put your own Rsp/Req related function here
+//return default 4 bytes for an ipv4 address
+uint32_t
+LSMessage::HelloReq::GetSerializedSize(void) const
+{
+  return IPV4_ADDRESS_SIZE;
+}
+//inject an info string with the source address into the stream
+void
+LSMessage::HelloReq::Print(std::ostream &os) const
+{
+  os << "HelloReq:: Source Address: " << sourceAddress << "\n";
+}
+
+//configure hello req for mem/stor
+void
+LSMessage::HelloReq::Serialize(Buffer::Iterator &start) const
+{
+  start.WriteHtonU32(sourceAddress.Get());
+}
+
+//deserialize hello req from mem/stor
+uint32_t
+LSMessage::HelloReq::Deserialize(Buffer::Iterator &start)
+{
+  sourceAddress = Ipv4Address(start.ReadNtohU32());
+  return HelloReq::GetSerializedSize();
+}
+
+//set/get for hello and hello req messages
+void
+LSMessage::SetHelloReq(Ipv4Address sourceAddress)
+{
+  if (m_messageType == 0)
+  {
+    m_messageType = HELLO_REQ;
+  }
+  else
+  {
+    NS_ASSERT(m_messageType == HELLO_REQ);
+  }
+  m_message.helloReq.sourceAddress = sourceAddress;
+}
+
+LSMessage::HelloReq
+LSMessage::GetHelloReq()
+{
+  return m_message.helloReq;
+}
+
+// HELO ACK (RSP) ///
+
+//return the default 4bytes reqd for an ipv4 address
+uint32_t
+LSMessage::HelloRsp::GetSerializedSize(void) const
+{
+  return IPV4_ADDRESS_SIZE;
+}
+
+//inject string and address into output stream
+void
+LSMessage::HelloRsp::Print(std::ostream &os) const
+{
+  os << "HelloRsp:: Source Address: " << sourceAddress << "\n";
+}
+
+//serialize hello ack for memStor
+void
+LSMessage::HelloRsp::Serialize(Buffer::Iterator &start) const
+{
+  start.WriteHtonU32(sourceAddress.Get()); 
+}
+
+//deserialize hello ack  for memstor
+uint32_t
+LSMessage::HelloRsp::Deserialize(Buffer::Iterator &start)
+{
+  sourceAddress = Ipv4Address(start.ReadNtohU32()); //4 bytes long
+  return HelloRsp::GetSerializedSize(); 
+}
+
+
+//setter and getterfor hello ack respomse
+void
+LSMessage::SetHelloRsp(Ipv4Address sourceAddress)
+{
+  if (m_messageType == 0)
+  {
+    m_messageType = HELLO_RSP;
+  }
+  else
+  {
+    NS_ASSERT(m_messageType == HELLO_RSP);
+  }
+  m_message.helloRsp.sourceAddress = sourceAddress;
+}
+
+LSMessage::HelloRsp
+LSMessage::GetHelloRsp()
+{
+  return m_message.helloRsp;
+}
 
 void
 LSMessage::SetMessageType (MessageType messageType)

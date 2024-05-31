@@ -15,6 +15,7 @@
  */
 
 #include "ns3/ls-routing-protocol.h"
+#include "ns3/ls-message.h"
 #include "ns3/double.h"
 #include "ns3/inet-socket-address.h"
 #include "ns3/ipv4-header.h"
@@ -58,7 +59,6 @@ LSRoutingProtocol::GetTypeId(void)
 LSRoutingProtocol::LSRoutingProtocol()
     : m_auditPingsTimer(Timer::CANCEL_ON_DESTROY)
 {
-
   m_currentSequenceNumber = 0;
   // Setup static routing
   m_staticRouting = Create<Ipv4StaticRouting>();
@@ -134,7 +134,6 @@ LSRoutingProtocol::ReverseLookup(Ipv4Address ipAddress)
 
 void LSRoutingProtocol::DoInitialize()
 {
-
   if (m_mainAddress == Ipv4Address())
   {
     Ipv4Address loopback("127.0.0.1");
@@ -195,12 +194,100 @@ void LSRoutingProtocol::DoInitialize()
   {
     AuditPings();
     NS_LOG_DEBUG("Starting LS on node " << m_mainAddress);
+
+    // Start neighbor discovery by sending hello messages periodically
+    Simulator::Schedule(Seconds(1.0), &LSRoutingProtocol::SendHello, this);
   }
 }
 
-void LSRoutingProtocol::PrintRoutingTable(Ptr<OutputStreamWrapper> stream, Time::Unit unit) const
+void LSRoutingProtocol::SendHello()
 {
-  // You can ignore this function
+  Ptr<Packet> packet = Create<Packet>();
+  LSMessage lsMessage = LSMessage(LSMessage::HELLO_REQ, GetNextSequenceNumber(), m_maxTTL, m_mainAddress);
+  lsMessage.SetHelloReq(m_mainAddress);
+  packet->AddHeader(lsMessage);
+  BroadcastPacket(packet);
+
+  // Schedule next hello message
+  Simulator::Schedule(Seconds(10.0), &LSRoutingProtocol::SendHello, this); // Send hello every 10 seconds
+}
+
+void LSRoutingProtocol::ProcessHelloReq(LSMessage lsMessage)
+{
+  Ipv4Address neighborAddress = lsMessage.GetOriginatorAddress();
+  Ipv4Address interfaceAddress = lsMessage.GetHelloReq().sourceAddress;
+
+  // Check if the neighbor is already known
+  bool isNewNeighbor = true;
+  if (m_neighbors.find(m_mainAddress) != m_neighbors.end())
+  {
+    std::vector<Ipv4Address> &neighbors = m_neighbors[m_mainAddress];
+    for (auto addr : neighbors)
+    {
+      if (addr == neighborAddress)
+      {
+        isNewNeighbor = false;
+        break;
+      }
+    }
+  }
+
+  if (isNewNeighbor)
+  {
+    m_neighbors[m_mainAddress].push_back(neighborAddress);
+  }
+
+  // Send hello reply
+  LSMessage lsReply = LSMessage(LSMessage::HELLO_RSP, lsMessage.GetSequenceNumber(), m_maxTTL, m_mainAddress);
+  lsReply.SetHelloRsp(m_mainAddress);
+  Ptr<Packet> packet = Create<Packet>();
+  packet->AddHeader(lsReply);
+  BroadcastPacket(packet);
+}
+
+void LSRoutingProtocol::ProcessHelloRsp(LSMessage lsMessage)
+{
+  Ipv4Address neighborAddress = lsMessage.GetOriginatorAddress();
+  Ipv4Address interfaceAddress = lsMessage.GetHelloRsp().sourceAddress;
+
+  // Check if the neighbor is already known
+  bool isNewNeighbor = true;
+  if (m_neighbors.find(m_mainAddress) != m_neighbors.end())
+  {
+    std::vector<Ipv4Address> &neighbors = m_neighbors[m_mainAddress];
+    for (auto addr : neighbors)
+    {
+      if (addr == neighborAddress)
+      {
+        isNewNeighbor = false;
+        break;
+      }
+    }
+  }
+
+  if (isNewNeighbor)
+  {
+    m_neighbors[m_mainAddress].push_back(neighborAddress);
+  }
+}
+
+void LSRoutingProtocol::DumpNeighbors()
+{
+  STATUS_LOG(std::endl
+             << "**************** Neighbor List ********************" << std::endl
+             << "NeighborNumber\t\tNeighborAddr\t\tInterfaceAddr");
+
+  if (m_neighbors.find(m_mainAddress) != m_neighbors.end())
+  {
+    const std::vector<Ipv4Address> &neighbors = m_neighbors[m_mainAddress];
+    STATUS_LOG(neighbors.size());
+    for (auto addr : neighbors)
+    {
+      STATUS_LOG(m_addressNodeMap[addr] << "\t\t" << addr << "\t\t" << m_mainAddress);
+      // For autograding
+      // checkNeighborTableEntry(m_addressNodeMap[addr], addr, m_mainAddress);
+    }
+  }
 }
 
 Ptr<Ipv4Route>
@@ -335,32 +422,6 @@ void LSRoutingProtocol::DumpLSA()
   PRINT_LOG("");
 }
 
-void LSRoutingProtocol::DumpNeighbors()
-{
-  STATUS_LOG(std::endl
-             << "**************** Neighbor List ********************" << std::endl
-             << "NeighborNumber\t\tNeighborAddr\t\tInterfaceAddr");
-  PRINT_LOG("");
-
-  /* NOTE: For purpose of autograding, you should invoke the following function for each
-  neighbor table entry. The output format is indicated by parameter name and type.
-  */
-  //  checkNeighborTableEntry();
-}
-
-void LSRoutingProtocol::DumpRoutingTable()
-{
-  STATUS_LOG(std::endl
-             << "**************** Route Table ********************" << std::endl
-             << "DestNumber\t\tDestAddr\t\tNextHopNumber\t\tNextHopAddr\t\tInterfaceAddr\t\tCost");
-
-  PRINT_LOG("");
-
-  /* NOTE: For purpose of autograding, you should invoke the following function for each
-  routing table entry. The output format is indicated by parameter name and type.
-  */
-  //  checkNeighborTableEntry();
-}
 void LSRoutingProtocol::RecvLSMessage(Ptr<Socket> socket)
 {
   Address sourceAddr;
@@ -398,6 +459,12 @@ void LSRoutingProtocol::RecvLSMessage(Ptr<Socket> socket)
     break;
   case LSMessage::PING_RSP:
     ProcessPingRsp(lsMessage);
+    break;
+  case LSMessage::HELLO_REQ:
+    ProcessHelloReq(lsMessage);
+    break;
+  case LSMessage::HELLO_RSP:
+    ProcessHelloRsp(lsMessage);
     break;
   default:
     ERROR_LOG("Unknown Message Type!");
