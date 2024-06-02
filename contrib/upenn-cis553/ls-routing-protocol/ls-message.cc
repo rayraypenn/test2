@@ -61,13 +61,15 @@ LSMessage::GetSerializedSize (void) const
     case PING_RSP:
       size += m_message.pingRsp.GetSerializedSize ();
       break;
-      //added hello req/resp serialization sizes incrementer
+      //[DONE] TODO: Add new case for hello and response following same pattern as ping req/resp
     case HELLO_REQ:
-      size += m_message.helloReq.GetSerializedSize();
+      size += m_message.helloReq.GetSerializedSize ();
       break;
     case HELLO_RSP:
-      size += m_message.helloRsp.GetSerializedSize();
+      size += m_message.helloRsp.GetSerializedSize ();
       break;
+    //DONE TODO: Add new case for link state advert following same pattern as hello and ping 
+
     default:
     NS_ASSERT(false);
     }
@@ -87,19 +89,20 @@ LSMessage::Print (std::ostream &os) const
   switch (m_messageType)
     {
     case PING_REQ:
-      m_message.pingReq.Print(os);
+      m_message.pingReq.Print (os);
       break;
     case PING_RSP:
-      m_message.pingRsp.Print(os);
+      m_message.pingRsp.Print (os);
       break;
-      //added hello req print message 
+      //[DONE] TODOD: add print for hello req 
     case HELLO_REQ:
-      m_message.helloReq.Print(os);
+      m_message.helloReq.Print (os);
       break;
-      //added hello ack print message 
+      //[DONE] TODOD: add print for hello resp 
     case HELLO_RSP:
-      m_message.helloRsp.Print(os);
+      m_message.helloRsp.Print (os);
       break;
+      //TODO: add printing on the link state advert
     default:
       break;
     }
@@ -115,21 +118,24 @@ LSMessage::Serialize (Buffer::Iterator start) const
   i.WriteU8 (m_ttl);
   i.WriteHtonU32 (m_originatorAddress.Get ());
 
-  //added serialization methods for hello and hello ack 
+
   switch (m_messageType)
     {
     case PING_REQ:
-      m_message.pingReq.Serialize(i);
+      m_message.pingReq.Serialize (i);
       break;
     case PING_RSP:
-      m_message.pingRsp.Serialize(i);
+      m_message.pingRsp.Serialize (i);
       break;
+    //[DONE]: TODO: add serialize to hello req 
     case HELLO_REQ:
-      m_message.helloReq.Serialize(i);
+      m_message.helloReq.Serialize (i);
       break;
+    //[DONE]: TODO: add serialize to hello resp 
     case HELLO_RSP:
-      m_message.helloRsp.Serialize(i);
+      m_message.helloRsp.Serialize (i);
       break;
+      // TODO: add serialize to ls advert
     default:
       NS_ASSERT (false);
     }
@@ -147,28 +153,31 @@ LSMessage::Deserialize (Buffer::Iterator start)
 
   size = sizeof (uint8_t) + sizeof (uint32_t) + sizeof (uint8_t) + IPV4_ADDRESS_SIZE;
 
-  //added deserailize for hello and hello ack
+
   switch (m_messageType)
     {
     case PING_REQ:
-      size += m_message.pingReq.Deserialize(i);
+      size += m_message.pingReq.Deserialize (i);
       break;
     case PING_RSP:
-      size += m_message.pingRsp.Deserialize(i);
+      size += m_message.pingRsp.Deserialize (i);
       break;
+    //[DONE] TODO dd deserialize for hello req
     case HELLO_REQ:
-      size += m_message.helloReq.Deserialize(i);
+      size += m_message.helloReq.Deserialize (i);
       break;
+    //[DONE] TODO add deserialize for hello resp
   case HELLO_RSP:
-      size += m_message.helloRsp.Deserialize(i);
+      size += m_message.helloRsp.Deserialize (i);
       break;
+    //TODO: add deserialize for LS Advert=
     default:
       NS_ASSERT (false);
     }
   return size;
 }
 
-/* PING_REQ */
+///REQUEST METHODS PING REQ, HELLO REQ, (eventually) ls advert (for some)
 
 uint32_t
 LSMessage::PingReq::GetSerializedSize (void) const
@@ -178,11 +187,32 @@ LSMessage::PingReq::GetSerializedSize (void) const
   return size;
 }
 
+//TODO: get serialization size for hello req 
+uint32_t
+LSMessage::HelloReq::GetSerializedSize (void) const
+{
+  //same format as ping req
+  uint32_t size;
+  size = IPV4_ADDRESS_SIZE + sizeof (uint16_t) + helloMessage.length ();
+  return size;
+}
+
 void
 LSMessage::PingReq::Print (std::ostream &os) const
 {
   os << "PingReq:: Message: " << pingMessage << "\n";
 }
+
+//TODO: get ls advert serialize size 
+
+//[DONE]: TODO: print for the hello req message
+void
+LSMessage::HelloReq::Print (std::ostream &os) const
+{
+  os << "HelloReq:: Message: " << helloMessage << "\n";
+}
+
+//TODO: print for the ls advert
 
 void
 LSMessage::PingReq::Serialize (Buffer::Iterator &start) const
@@ -191,6 +221,18 @@ LSMessage::PingReq::Serialize (Buffer::Iterator &start) const
   start.WriteU16 (pingMessage.length ());
   start.Write ((uint8_t *)(const_cast<char *> (pingMessage.c_str ())), pingMessage.length ());
 }
+
+//[DONE]: TODO: serialize for the hello req message
+void
+LSMessage::HelloReq::Serialize (Buffer::Iterator &start) const
+{
+  start.WriteHtonU32 (destinationAddress.Get ());
+  start.WriteU16 (helloMessage.length ());
+  start.Write ((uint8_t *)(const_cast<char *> (helloMessage.c_str ())), helloMessage.length ());
+}
+
+//TODO: serialize for each entry in the ls advert
+
 
 uint32_t
 LSMessage::PingReq::Deserialize (Buffer::Iterator &start)
@@ -203,6 +245,22 @@ LSMessage::PingReq::Deserialize (Buffer::Iterator &start)
   free (str);
   return PingReq::GetSerializedSize ();
 }
+
+//DONE: TODO add deserialize for hello message
+uint32_t
+LSMessage::HelloReq::Deserialize (Buffer::Iterator &start)
+{
+  destinationAddress = Ipv4Address (start.ReadNtohU32 ());
+  uint16_t length = start.ReadU16 ();
+  char *str = (char *)malloc (length);
+  start.Read ((uint8_t *)str, length);
+  helloMessage = std::string (str, length);
+  free (str);
+  return HelloReq::GetSerializedSize ();
+}
+
+//TODO: deserialize for each entry in the ls advert
+
 
 void
 LSMessage::SetPingReq (Ipv4Address destinationAddress, std::string pingMessage)
@@ -219,14 +277,45 @@ LSMessage::SetPingReq (Ipv4Address destinationAddress, std::string pingMessage)
   m_message.pingReq.pingMessage = pingMessage;
 }
 
+//[DONE]: TODO: setter for hello req
+void
+LSMessage::SetHelloReq (Ipv4Address destinationAddress, std::string helloMessage)
+//same format as ping
+{
+  if (m_messageType == 0)
+    {
+      m_messageType = HELLO_REQ;
+    }
+  else
+    {
+      NS_ASSERT (m_messageType == HELLO_REQ);
+    }
+  m_message.helloReq.destinationAddress = destinationAddress;
+  m_message.helloReq.helloMessage = helloMessage;
+}
+
+//TODO: setter for the lsa advert
+
 LSMessage::PingReq
 LSMessage::GetPingReq ()
 {
   return m_message.pingReq;
 }
 
-/* PING_RSP */
 
+//[DONE] TODO: Add getter for hello request 
+LSMessage::HelloReq
+
+LSMessage::GetHelloReq ()
+{
+  return m_message.helloReq;
+}
+
+
+//TODO add getter for the ls advert
+
+
+//RESPONSES - PINGS, HELLOS
 uint32_t
 LSMessage::PingRsp::GetSerializedSize (void) const
 {
@@ -235,11 +324,32 @@ LSMessage::PingRsp::GetSerializedSize (void) const
   return size;
 }
 
+
+//[DONE]: TODO - serialize t e response for hello
+uint32_t
+LSMessage::HelloRsp::GetSerializedSize (void) const
+{
+  uint32_t size;
+  size = IPV4_ADDRESS_SIZE + sizeof (uint16_t) + helloMessage.length ();
+  return size;
+}
+
 void
 LSMessage::PingRsp::Print (std::ostream &os) const
 {
-  os << "PingRsp:: Message: " << pingMessage << "\n";
+  os << "PingReq:: Message: " << pingMessage << "\n";
 }
+
+
+
+//[DONE]: add print for the RESPONSE 
+void
+LSMessage::HelloRsp::Print (std::ostream &os) const
+{
+  os << "HelloReq:: Message: " << helloMessage << "\n";
+}
+
+
 
 void
 LSMessage::PingRsp::Serialize (Buffer::Iterator &start) const
@@ -248,6 +358,17 @@ LSMessage::PingRsp::Serialize (Buffer::Iterator &start) const
   start.WriteU16 (pingMessage.length ());
   start.Write ((uint8_t *)(const_cast<char *> (pingMessage.c_str ())), pingMessage.length ());
 }
+
+
+//[DONE] TODO: Add serialize for hello RESPONSE
+void
+LSMessage::HelloRsp::Serialize (Buffer::Iterator &start) const
+{
+  start.WriteHtonU32 (destinationAddress.Get ());
+  start.WriteU16 (helloMessage.length ());
+  start.Write ((uint8_t *)(const_cast<char *> (helloMessage.c_str ())), helloMessage.length ());
+}
+
 
 uint32_t
 LSMessage::PingRsp::Deserialize (Buffer::Iterator &start)
@@ -259,6 +380,21 @@ LSMessage::PingRsp::Deserialize (Buffer::Iterator &start)
   pingMessage = std::string (str, length);
   free (str);
   return PingRsp::GetSerializedSize ();
+}
+
+
+
+//[DONE] TODO: Add deserialize fro hello RESPONSE
+uint32_t
+LSMessage::HelloRsp::Deserialize (Buffer::Iterator &start)
+{
+  destinationAddress = Ipv4Address (start.ReadNtohU32 ());
+  uint16_t length = start.ReadU16 ();
+  char *str = (char *)malloc (length);
+  start.Read ((uint8_t *)str, length);
+  helloMessage = std::string (str, length);
+  free (str);
+  return HelloRsp::GetSerializedSize ();
 }
 
 void
@@ -276,115 +412,39 @@ LSMessage::SetPingRsp (Ipv4Address destinationAddress, std::string pingMessage)
   m_message.pingRsp.pingMessage = pingMessage;
 }
 
+
+
+//[DONE] TODO:setter for the hello repsonse 
+void
+LSMessage::SetHelloRsp (Ipv4Address destinationAddress, std::string helloMessage)
+{
+  if (m_messageType == 0)
+    {
+      m_messageType = HELLO_RSP;
+    }
+  else
+    {
+      NS_ASSERT (m_messageType == HELLO_RSP);
+    }
+  m_message.helloRsp.destinationAddress = destinationAddress;
+  m_message.helloRsp.helloMessage = helloMessage;
+}
+
+
 LSMessage::PingRsp
 LSMessage::GetPingRsp ()
 {
   return m_message.pingRsp;
 }
-// HELLO REQ //
 
-//return default 4 bytes for an ipv4 address
-uint32_t
-LSMessage::HelloReq::GetSerializedSize(void) const
-{
-  return IPV4_ADDRESS_SIZE;
-}
-//inject an info string with the source address into the stream
-void
-LSMessage::HelloReq::Print(std::ostream &os) const
-{
-  os << "HelloReq:: Source Address: " << sourceAddress << "\n";
-}
-
-//configure hello req for mem/stor
-void
-LSMessage::HelloReq::Serialize(Buffer::Iterator &start) const
-{
-  start.WriteHtonU32(sourceAddress.Get());
-}
-
-//deserialize hello req from mem/stor
-uint32_t
-LSMessage::HelloReq::Deserialize(Buffer::Iterator &start)
-{
-  sourceAddress = Ipv4Address(start.ReadNtohU32());
-  return HelloReq::GetSerializedSize();
-}
-
-//set/get for hello and hello req messages
-void
-LSMessage::SetHelloReq(Ipv4Address sourceAddress)
-{
-  if (m_messageType == 0)
-  {
-    m_messageType = HELLO_REQ;
-  }
-  else
-  {
-    NS_ASSERT(m_messageType == HELLO_REQ);
-  }
-  m_message.helloReq.sourceAddress = sourceAddress;
-}
-
-LSMessage::HelloReq
-LSMessage::GetHelloReq()
-{
-  return m_message.helloReq;
-}
-
-// HELO ACK (RSP) ///
-
-//return the default 4bytes reqd for an ipv4 address
-uint32_t
-LSMessage::HelloRsp::GetSerializedSize(void) const
-{
-  return IPV4_ADDRESS_SIZE;
-}
-
-//inject string and address into output stream
-void
-LSMessage::HelloRsp::Print(std::ostream &os) const
-{
-  os << "HelloRsp:: Source Address: " << sourceAddress << "\n";
-}
-
-//serialize hello ack for memStor
-void
-LSMessage::HelloRsp::Serialize(Buffer::Iterator &start) const
-{
-  start.WriteHtonU32(sourceAddress.Get()); 
-}
-
-//deserialize hello ack  for memstor
-uint32_t
-LSMessage::HelloRsp::Deserialize(Buffer::Iterator &start)
-{
-  sourceAddress = Ipv4Address(start.ReadNtohU32()); //4 bytes long
-  return HelloRsp::GetSerializedSize(); 
-}
-
-
-//setter and getterfor hello ack respomse
-void
-LSMessage::SetHelloRsp(Ipv4Address sourceAddress)
-{
-  if (m_messageType == 0)
-  {
-    m_messageType = HELLO_RSP;
-  }
-  else
-  {
-    NS_ASSERT(m_messageType == HELLO_RSP);
-  }
-  m_message.helloRsp.sourceAddress = sourceAddress;
-}
-
+//[DONE] TODO - add the getter for HELLO RESPONSE
 LSMessage::HelloRsp
 LSMessage::GetHelloRsp()
 {
   return m_message.helloRsp;
 }
 
+//QUESTION: are we suppoesd to use this? 
 void
 LSMessage::SetMessageType (MessageType messageType)
 {

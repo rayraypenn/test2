@@ -26,12 +26,15 @@ using namespace ns3;
 
 #define IPV4_ADDRESS_SIZE 4
 
+//Future: Routing table entry outside of class
+
 class DVMessage : public Header
 {
 public:
   DVMessage();
   virtual ~DVMessage();
 
+  //DONE added extra hello req/rsp with consec vals
   enum MessageType
   {
     PING_REQ = 1,
@@ -130,22 +133,23 @@ public:
 
   struct HelloReq
   {
-    void Print(std::ostream &os) const;
-    uint32_t GetSerializedSize(void) const;
-    void Serialize(Buffer::Iterator &start) const;
-    uint32_t Deserialize(Buffer::Iterator &start);
-    // Payload
-    Ipv4Address sourceAddress;
+        Ipv4Address destinationAddress;
+        std::string helloMsg; 
+        uint32_t GetSerializedSize(void) const;
+        void Print(std::ostream &os) const;
+        void Serialize(Buffer::Iterator &start) const;
+        uint32_t Deserialize(Buffer::Iterator &start);
+
   };
 
   struct HelloRsp
   {
-    void Print(std::ostream &os) const;
+    Ipv4Address destinationAddress;
+    std::string helloMsg; // Change helloMessage to helloMsg
     uint32_t GetSerializedSize(void) const;
+    void Print(std::ostream &os) const;
     void Serialize(Buffer::Iterator &start) const;
     uint32_t Deserialize(Buffer::Iterator &start);
-    // Payload
-    Ipv4Address sourceAddress;
   };
 
 private:
@@ -179,33 +183,19 @@ public:
    */
   void SetPingRsp(Ipv4Address destinationAddress, std::string message);
 
-  /**
-   *  \returns HelloReq Struct
-   */
+  
+
+  void SetHelloReq(Ipv4Address destinationAddress, std::string helloMsg);
   HelloReq GetHelloReq();
 
-  /**
-   *  \brief Sets HelloReq message params
-   *  \param sourceAddress Source Address
-   */
-  void SetHelloReq(Ipv4Address sourceAddress);
-
-  /**
-   *  \returns HelloRsp Struct
-   */
+  void SetHelloRsp(Ipv4Address destinationAddress, std::string helloMsg);
   HelloRsp GetHelloRsp();
 
-  /**
-   *  \brief Sets HelloRsp message params
-   *  \param sourceAddress Source Address
-   */
-  void SetHelloRsp(Ipv4Address sourceAddress);
-}; // class DVMessage
 
 static inline std::ostream &operator<<(std::ostream &os, const DVMessage &message)
 {
-  message.Print(os);
+  message.Print (os);
   return os;
 }
-
+}
 #endif

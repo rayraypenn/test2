@@ -90,10 +90,25 @@ public:
   void ProcessPingReq(LSMessage lsMessage);
   void ProcessPingRsp(LSMessage lsMessage);
 
+  //[DONE]: TODO add definitions for outlined processing functions for hello req, res and 
+  //a broadcast for hello
+  //process the hello request message
+  void ProcessHelloReq(LSMessage lsMessage);
+
+  //process response message, should accept an interface address
+  void ProcessHelloRsp(LSMessage lsMessage, Ipv4Address interfaceAd);
+
+  //broadcaster function to surrounding neighbors
+  void BroadcastHello();
+
   // Periodic Audit
   void AuditPings();
 
-  // From Ipv4RoutingProtocol
+  //[DONE]: function to audit the neighborhood
+  void AuditNeighbors();
+
+  //TODO: need to add definitions for ls advert, processing, flooding and the algorithm
+  //TODO: also, need a structure to manage information about the node neighbors
 
   /**
    * \brief Print the Routing Table entries
@@ -219,12 +234,11 @@ private:
    * Useful when printing out debugging messages etc.
    *
    * \param ipv4Address IP address of node.
-   */  virtual std::string ReverseLookup(Ipv4Address ipv4Address);
+   */  
+   virtual std::string ReverseLookup(Ipv4Address ipv4Address);
 
   // Status
-  void DumpLSA();
   void DumpNeighbors();
-  void DumpRoutingTable();
 
 protected:
   virtual void DoInitialize(void);
@@ -237,11 +251,6 @@ protected:
    */
   bool IsOwnAddress(Ipv4Address originatorAddress);
 
-  // Neighbor discovery methods
-  void SendHello();
-  void ProcessHelloReq(LSMessage lsMessage);
-  void ProcessHelloRsp(LSMessage lsMessage);
-
 private:
   std::map<Ptr<Socket>, Ipv4InterfaceAddress> m_socketAddresses;
   Ptr<Socket> m_recvSocket; //!< Receiving socket.
@@ -249,7 +258,10 @@ private:
   Ptr<Ipv4StaticRouting> m_staticRouting;
   Ptr<Ipv4> m_ipv4;
 
+
+
   Time m_pingTimeout;
+  Time m_neighborTimeout; //add timeout for neighbor
   uint8_t m_maxTTL;
   uint16_t m_lsPort;
   uint32_t m_currentSequenceNumber;
@@ -258,14 +270,21 @@ private:
 
   // Timers
   Timer m_auditPingsTimer;
+  Timer m_auditNeighborsTimer;
 
   // Ping tracker
   std::map<uint32_t, Ptr<PingRequest>> m_pingTracker;
 
-  // Neighbor table
-  std::map<Ipv4Address, std::vector<Ipv4Address>> m_neighbors; // Neighbor table
+  //[DONE]: TODO: create structs to populate the neighbor table 
+  struct NeighborTableEntry {
+    Ipv4Address neighborAddr;
+    Ipv4Address interfaceAddr;
+    Time t_stamp;
+    uint32_t nodeNumber;
+  };
+
+   // Neighbor table
+  std::map<uint32_t, NeighborTableEntry> m_neighbors; // Neighbor table
 };
 
 #endif
-
-
