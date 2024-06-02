@@ -84,9 +84,7 @@ private:
     virtual std::string ReverseLookup(Ipv4Address ipv4Address);
 
     void DumpNeighbors();
-    // void DumpRoutingTable();
-    // void checkNeighborTableEntry(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr);
-
+    
 protected:
     virtual void DoInitialize(void);
     uint32_t GetNextSequenceNumber();
