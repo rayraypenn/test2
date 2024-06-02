@@ -37,7 +37,8 @@ NS_OBJECT_ENSURE_REGISTERED(DVRoutingProtocol);
 #define DV_MAX_SEQUENCE_NUMBER 0xFFFF
 #define DV_PORT_NUMBER 698
 
-class NeighborTableEntry;
+// class NeighborTableEntry;
+// Timer m_auditNeighborsTimer;
 
 TypeId
 DVRoutingProtocol::GetTypeId(void)
@@ -203,7 +204,8 @@ void DVRoutingProtocol::DoInitialize()
 
     if (canRunDV)
     {
-        AuditPings();
+        // AuditPings();
+        AuditNeighbors();
         NS_LOG_DEBUG("Starting DV on node " << m_mainAddress);
     }
 }
@@ -319,10 +321,6 @@ void DVRoutingProtocol::ProcessCommand(std::vector<std::string> tokens)
         }
         iterator++;
         std::string table = *iterator;
-        // if (table == "ROUTES" || table == "ROUTING")
-        // {
-        //     DumpRoutingTable();
-        // }
         if (table == "NEIGHBORS" || table == "NEIGHBOURS")
         {
             DumpNeighbors();
@@ -347,27 +345,6 @@ void DVRoutingProtocol::DumpNeighbors()
     }
 }
 
-
-// void DVRoutingProtocol::checkNeighborTableEntry(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr)
-// {
-//     // Log or perform any necessary validation checks here
-//     STATUS_LOG("Node: " << nodeNum << " NeighborAddr: " << neighborAddr << " InterfaceAddr: " << interfaceAddr);
-// }
-
-// void DVRoutingProtocol::DumpRoutingTable()
-// {
-//     STATUS_LOG(std::endl
-//                << "**************** Route Table ********************" << std::endl
-//                << "DestNumber\t\tDestAddr\t\tNextHopNumber\t\tNextHopAddr\t\tInterfaceAddr\t\tCost");
-
-//     PRINT_LOG("");
-
-//     /* NOTE: For purpose of autograding, you should invoke the following function for each
-//   routing table entry. The output format is indicated by parameter name and type.
-//   */
-//     //  checkRouteTableEntry();
-// }
-
 void DVRoutingProtocol::RecvDVMessage(Ptr<Socket> socket)
 {
     Address sourceAddr;
@@ -382,7 +359,7 @@ void DVRoutingProtocol::RecvDVMessage(Ptr<Socket> socket)
 
     if (!packet->RemoveHeader(dvMessage))
     {
-        NS_ABORT_MSG("No incoming interface on LS message, aborting.");
+        NS_ABORT_MSG("No incoming interface on DV message, aborting.");
     }
 
     Ipv4Address interface;
@@ -538,15 +515,6 @@ void DVRoutingProtocol::BroadcastHello()
   BroadcastPacket(pkt);
 }
 
-
-
-// void DVRoutingProtocol::AddNeighbor(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr)
-// {
-//     // Add to neighbor table
-//     NeighborTableEntry entry = {neighborAddr, interfaceAddr};
-//     m_neighbors[nodeNum] = entry;
-// }
-
 bool DVRoutingProtocol::IsOwnAddress(Ipv4Address originatorAddress)
 {
     // Check all interfaces
@@ -591,87 +559,21 @@ uint32_t DVRoutingProtocol::GetNextSequenceNumber()
 void DVRoutingProtocol::NotifyInterfaceUp(uint32_t interface)
 {
     m_staticRouting->NotifyInterfaceUp(interface);
-    // if (m_mainAddress == Ipv4Address())
-    // {
-    //     m_mainAddress = m_ipv4->GetAddress(interface, 0).GetLocal();
-    // }
-
-    // if (m_staticRouting == 0)
-    // {
-    //     m_staticRouting = Create<Ipv4StaticRouting>();
-    // }
-
-    // Ipv4Address address = m_ipv4->GetAddress(interface, 0).GetLocal();
-
-    // for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator i =
-    //          m_socketAddresses.begin();
-    //      i != m_socketAddresses.end(); i++)
-    // {
-    //     Ipv4InterfaceAddress interfaceAddr = i->second;
-    //     if (address == interfaceAddr.GetLocal())
-    //     {
-    //         return;
-    //     }
-    // }
-
-    // Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(), UdpSocketFactory::GetTypeId());
-    // socket->SetAllowBroadcast(true);
-    // InetSocketAddress inetAddr(address, m_dvPort);
-    // socket->SetRecvCallback(MakeCallback(&DVRoutingProtocol::RecvDVMessage, this));
-    // if (socket->Bind(inetAddr))
-    // {
-    //     NS_FATAL_ERROR("DVRoutingProtocol::NotifyInterfaceUp::Failed to bind socket!");
-    // }
-    // socket->BindToNetDevice(m_ipv4->GetNetDevice(interface));
-    // m_socketAddresses[socket] = m_ipv4->GetAddress(interface, 0);
 }
 
 void DVRoutingProtocol::NotifyInterfaceDown(uint32_t interface)
 {
     m_staticRouting->NotifyInterfaceDown(interface);
-    // Ipv4Address address = m_ipv4->GetAddress(interface, 0).GetLocal();
-
-    // for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::iterator i = m_socketAddresses.begin(); i != m_socketAddresses.end(); i++)
-    // {
-    //     Ipv4InterfaceAddress interfaceAddr = i->second;
-    //     if (address == interfaceAddr.GetLocal())
-    //     {
-    //         i->first->Close();
-    //         m_socketAddresses.erase(i);
-    //         break;
-    //     }
-    // }
 }
 
 void DVRoutingProtocol::NotifyAddAddress(uint32_t interface, Ipv4InterfaceAddress address)
 {
      m_staticRouting->NotifyAddAddress(interface, address);
-
-    // Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(), UdpSocketFactory::GetTypeId());
-    // socket->SetAllowBroadcast(true);
-    // InetSocketAddress inetAddr(address.GetLocal(), m_dvPort);
-    // socket->SetRecvCallback(MakeCallback(&DVRoutingProtocol::RecvDVMessage, this));
-    // if (socket->Bind(inetAddr))
-    // {
-    //     NS_FATAL_ERROR("DVRoutingProtocol::NotifyAddAddress::Failed to bind socket!");
-    // }
-    // socket->BindToNetDevice(m_ipv4->GetNetDevice(interface));
-    // m_socketAddresses[socket] = address;
 }
 
 void DVRoutingProtocol::NotifyRemoveAddress(uint32_t interface, Ipv4InterfaceAddress address)
 {
     m_staticRouting->NotifyRemoveAddress(interface, address);
-    // for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::iterator i = m_socketAddresses.begin(); i != m_socketAddresses.end(); i++)
-    // {
-    //     Ipv4InterfaceAddress interfaceAddr = i->second;
-    //     if (address == interfaceAddr.GetLocal())
-    //     {
-    //         i->first->Close();
-    //         m_socketAddresses.erase(i);
-    //         break;
-    //     }
-    // }
 }
 
 void DVRoutingProtocol::SetIpv4(Ptr<Ipv4> ipv4)
@@ -679,13 +581,12 @@ void DVRoutingProtocol::SetIpv4(Ptr<Ipv4> ipv4)
     NS_ASSERT(ipv4 != 0);
     NS_ASSERT(m_ipv4 == 0);
     NS_LOG_DEBUG("Created dv::RoutingProtocol");
-    // m_ipv4 = ipv4;
 
       // Configure timers
-  m_auditPingsTimer.SetFunction(&DVRoutingProtocol::AuditPings, this);
-  m_auditNeighborsTimer.SetFunction(&DVRoutingProtocol::AuditNeighbors, this);
-  m_ipv4 = ipv4;
-  m_staticRouting->SetIpv4(m_ipv4);
+    m_auditPingsTimer.SetFunction(&DVRoutingProtocol::AuditPings, this);
+    m_auditNeighborsTimer.SetFunction(&DVRoutingProtocol::AuditNeighbors, this);
+    m_ipv4 = ipv4;
+    m_staticRouting->SetIpv4(m_ipv4);
 }
 
 //~ resolve buggy push
