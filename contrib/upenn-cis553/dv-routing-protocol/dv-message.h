@@ -183,19 +183,20 @@ public:
    */
   void SetPingRsp(Ipv4Address destinationAddress, std::string message);
 
-  
-
   void SetHelloReq(Ipv4Address destinationAddress, std::string helloMsg);
   HelloReq GetHelloReq();
 
   void SetHelloRsp(Ipv4Address destinationAddress, std::string helloMsg);
   HelloRsp GetHelloRsp();
+}; // class DVMessage
 
 
-static inline std::ostream &operator<<(std::ostream &os, const DVMessage &message)
+static inline std::ostream& operator<< (std::ostream& os, const DVMessage& message)
 {
   message.Print (os);
   return os;
 }
-}
+
 #endif
+
+//~ resolve buggy push

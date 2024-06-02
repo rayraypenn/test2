@@ -55,11 +55,16 @@ public:
     void ProcessPingReq(DVMessage dvMessage);
     void ProcessPingRsp(DVMessage dvMessage);
     void ProcessHelloReq(DVMessage dvMessage);
-    void ProcessHelloRsp(DVMessage dvMessage);
+    void ProcessHelloRsp(DVMessage dvMessage, Ipv4Address interfaceAd); //~ process response message, should accept an interface address
+
+    //broadcaster function to surrounding neighbors
+    void BroadcastHello();
 
     void AuditPings();
-    void AddNeighbor(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr);
+    // void AddNeighbor(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr);
 
+    //[DONE]: function to audit the neighborhood
+    void AuditNeighbors();
     virtual void PrintRoutingTable(Ptr<OutputStreamWrapper> stream, Time::Unit unit = Time::S) const;
     virtual Ptr<Ipv4Route> RouteOutput(Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDevice> oif, Socket::SocketErrno &sockerr);
     virtual bool RouteInput(Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev,
@@ -79,8 +84,8 @@ private:
     virtual std::string ReverseLookup(Ipv4Address ipv4Address);
 
     void DumpNeighbors();
-    void DumpRoutingTable();
-    void checkNeighborTableEntry(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr);
+    // void DumpRoutingTable();
+    // void checkNeighborTableEntry(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr);
 
 protected:
     virtual void DoInitialize(void);
@@ -93,21 +98,35 @@ private:
     Ipv4Address m_mainAddress;
     Ptr<Ipv4StaticRouting> m_staticRouting;
     Ptr<Ipv4> m_ipv4;
+
     Time m_pingTimeout;
+    Time m_neighborTimeout; //~ add timeout for neighbor
     uint8_t m_maxTTL;
     uint16_t m_dvPort;
     uint32_t m_currentSequenceNumber;
     std::map<uint32_t, Ipv4Address> m_nodeAddressMap;
     std::map<Ipv4Address, uint32_t> m_addressNodeMap;
+
+    //~ Timers
     Timer m_auditPingsTimer;
-    std::map<uint32_t, NeighborTableEntry> m_neighbors;
+    Timer m_auditNeighborsTimer;
+
+    //~ Ping tracker
+    std::map<uint32_t, Ptr<PingRequest>> m_pingTracker; 
 
     struct NeighborTableEntry
-    {
-        Ipv4Address neighborAddr;
-        Ipv4Address interfaceAddr;
-    };
+        {
+            Ipv4Address neighborAddr;
+            Ipv4Address interfaceAddr;
+            Time t_stamp;
+            uint32_t nodeNumber;
+        };
+    
+    // Neighbor table
+    std::map<uint32_t, NeighborTableEntry> m_neighbors;
 };
 
 
 #endif // DV_ROUTING_PROTOCOL_H
+
+//~ resolve buggy push

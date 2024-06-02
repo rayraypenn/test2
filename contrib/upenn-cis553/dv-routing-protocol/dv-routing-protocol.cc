@@ -687,3 +687,5 @@ void DVRoutingProtocol::SetIpv4(Ptr<Ipv4> ipv4)
   m_ipv4 = ipv4;
   m_staticRouting->SetIpv4(m_ipv4);
 }
+
+//~ resolve buggy push

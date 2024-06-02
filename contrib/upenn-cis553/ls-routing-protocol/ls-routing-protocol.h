@@ -258,8 +258,6 @@ private:
   Ptr<Ipv4StaticRouting> m_staticRouting;
   Ptr<Ipv4> m_ipv4;
 
-
-
   Time m_pingTimeout;
   Time m_neighborTimeout; //add timeout for neighbor
   uint8_t m_maxTTL;
@@ -288,3 +286,5 @@ private:
 };
 
 #endif
+
+//~ resolve buggy push
