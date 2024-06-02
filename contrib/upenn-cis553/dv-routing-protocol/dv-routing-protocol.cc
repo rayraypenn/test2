@@ -37,6 +37,8 @@ NS_OBJECT_ENSURE_REGISTERED(DVRoutingProtocol);
 #define DV_MAX_SEQUENCE_NUMBER 0xFFFF
 #define DV_PORT_NUMBER 698
 
+class NeighborTableEntry;
+
 TypeId
 DVRoutingProtocol::GetTypeId(void)
 {
@@ -62,7 +64,8 @@ DVRoutingProtocol::GetTypeId(void)
 }
 
 DVRoutingProtocol::DVRoutingProtocol()
-    : m_auditPingsTimer(Timer::CANCEL_ON_DESTROY)
+    : m_auditPingsTimer(Timer::CANCEL_ON_DESTROY),
+    m_auditNeighborsTimer(Timer::CANCEL_ON_DESTROY)
 {
     m_currentSequenceNumber = 0;
     // Setup static routing
@@ -95,6 +98,7 @@ void DVRoutingProtocol::DoDispose()
     // Cancel timers
     m_auditPingsTimer.Cancel();
     m_pingTracker.clear();
+    m_auditNeighborsTimer.Cancel();
 
     PennRoutingProtocol::DoDispose();
 }
@@ -315,11 +319,11 @@ void DVRoutingProtocol::ProcessCommand(std::vector<std::string> tokens)
         }
         iterator++;
         std::string table = *iterator;
-        if (table == "ROUTES" || table == "ROUTING")
-        {
-            DumpRoutingTable();
-        }
-        else if (table == "NEIGHBORS" || table == "NEIGHBOURS")
+        // if (table == "ROUTES" || table == "ROUTING")
+        // {
+        //     DumpRoutingTable();
+        // }
+        if (table == "NEIGHBORS" || table == "NEIGHBOURS")
         {
             DumpNeighbors();
         }
@@ -344,25 +348,25 @@ void DVRoutingProtocol::DumpNeighbors()
 }
 
 
-void DVRoutingProtocol::checkNeighborTableEntry(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr)
-{
-    // Log or perform any necessary validation checks here
-    STATUS_LOG("Node: " << nodeNum << " NeighborAddr: " << neighborAddr << " InterfaceAddr: " << interfaceAddr);
-}
+// void DVRoutingProtocol::checkNeighborTableEntry(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr)
+// {
+//     // Log or perform any necessary validation checks here
+//     STATUS_LOG("Node: " << nodeNum << " NeighborAddr: " << neighborAddr << " InterfaceAddr: " << interfaceAddr);
+// }
 
-void DVRoutingProtocol::DumpRoutingTable()
-{
-    STATUS_LOG(std::endl
-               << "**************** Route Table ********************" << std::endl
-               << "DestNumber\t\tDestAddr\t\tNextHopNumber\t\tNextHopAddr\t\tInterfaceAddr\t\tCost");
+// void DVRoutingProtocol::DumpRoutingTable()
+// {
+//     STATUS_LOG(std::endl
+//                << "**************** Route Table ********************" << std::endl
+//                << "DestNumber\t\tDestAddr\t\tNextHopNumber\t\tNextHopAddr\t\tInterfaceAddr\t\tCost");
 
-    PRINT_LOG("");
+//     PRINT_LOG("");
 
-    /* NOTE: For purpose of autograding, you should invoke the following function for each
-  routing table entry. The output format is indicated by parameter name and type.
-  */
-    //  checkRouteTableEntry();
-}
+//     /* NOTE: For purpose of autograding, you should invoke the following function for each
+//   routing table entry. The output format is indicated by parameter name and type.
+//   */
+//     //  checkRouteTableEntry();
+// }
 
 void DVRoutingProtocol::RecvDVMessage(Ptr<Socket> socket)
 {
@@ -406,7 +410,7 @@ void DVRoutingProtocol::RecvDVMessage(Ptr<Socket> socket)
         ProcessHelloReq(dvMessage);
         break;
     case DVMessage::HELLO_RSP:
-        ProcessHelloRsp(dvMessage);
+        ProcessHelloRsp(dvMessage, interface);
         break;
     default:
         ERROR_LOG("Unknown Message Type!");
@@ -455,33 +459,93 @@ void DVRoutingProtocol::ProcessPingRsp(DVMessage dvMessage)
 void DVRoutingProtocol::ProcessHelloReq(DVMessage dvMessage)
 {
     // Send HELLO_RSP in response to HELLO_REQ
+    std::string helloMessage = "HELLO_REPLY";
+    int m_maxTTL = 1;
     DVMessage dvResp = DVMessage(DVMessage::HELLO_RSP, dvMessage.GetSequenceNumber(), m_maxTTL, m_mainAddress);
-    dvResp.SetHelloRsp(dvMessage.GetOriginatorAddress(), dvMessage.GetHelloReq().helloMsg);
+    dvResp.SetHelloRsp(dvMessage.GetOriginatorAddress(), helloMessage); 
     Ptr<Packet> packet = Create<Packet>();
     packet->AddHeader(dvResp);
     BroadcastPacket(packet);
 }
 
 
-void DVRoutingProtocol::ProcessHelloRsp(DVMessage dvMessage)
+void DVRoutingProtocol::ProcessHelloRsp(DVMessage dvMessage, Ipv4Address interfaceAd)
 {
     // Check destination address
     if (IsOwnAddress(dvMessage.GetHelloRsp().destinationAddress))
     {
-        // Update neighbor table
-        Ipv4Address neighborAddr = dvMessage.GetOriginatorAddress();
-        Ipv4Address interfaceAddr = dvMessage.GetHelloRsp().destinationAddress;
-        uint32_t nodeNum = m_addressNodeMap[neighborAddr];
-        AddNeighbor(nodeNum, neighborAddr, interfaceAddr);
+        // process the message
+    // address of the node whose neighbours are being discovered
+    Ipv4Address m_node = dvMessage.GetHelloRsp().destinationAddress;
+    uint32_t current_node;
+    std::istringstream sin(ReverseLookup(m_node));
+    sin >> current_node;
+
+    // address of the neighbour node of m_node above
+    Ipv4Address neighbor_discovered = dvMessage.GetOriginatorAddress();
+    std::string neighbourNumStr = ReverseLookup(dvMessage.GetOriginatorAddress());
+    uint32_t neighborNum;
+    std::istringstream s(neighbourNumStr);
+    s >> neighborNum;
+    NeighborTableEntry neighbourEntry;
+    neighbourEntry.neighborAddr = neighbor_discovered;
+    neighbourEntry.t_stamp = Simulator::Now();
+    neighbourEntry.interfaceAddr = interfaceAd;
+
+    std::map<uint32_t, NeighborTableEntry>::iterator iter;
+    iter = m_neighbors.find(neighborNum);
+    if (iter == m_neighbors.end())
+    { // the current node is not found in the map and is added
+      m_neighbors.insert({neighborNum, neighbourEntry});
     }
+    else
+    {
+      iter->second = neighbourEntry;
+    }
+  }
 }
 
-void DVRoutingProtocol::AddNeighbor(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr)
+void DVRoutingProtocol::AuditNeighbors()
 {
-    // Add to neighbor table
-    NeighborTableEntry entry = {neighborAddr, interfaceAddr};
-    m_neighbors[nodeNum] = entry;
+  m_neighborTimeout = Seconds(5.0);
+  std::map<uint32_t, NeighborTableEntry>::iterator iter;
+
+  for (iter = m_neighbors.begin(); iter != m_neighbors.end();){
+    NeighborTableEntry neighbor_entry = iter->second;
+
+    if (neighbor_entry.t_stamp.GetMilliSeconds() + m_neighborTimeout.GetMilliSeconds() <= Simulator::Now().GetMilliSeconds())
+    {
+      m_neighbors.erase(iter++);
+    }
+    else
+    {
+      ++iter;
+    }
+  }
+  BroadcastHello();
+  m_auditNeighborsTimer.Schedule(Seconds(5));
 }
+
+void DVRoutingProtocol::BroadcastHello()
+{
+  std::string helloMessage = "HELLO";
+  int m_maxTTL = 1;
+  uint32_t sequenceNumber = GetNextSequenceNumber();
+  Ptr<Packet> pkt = Create<Packet>();
+  DVMessage dvMessage = DVMessage(DVMessage::HELLO_REQ, sequenceNumber, m_maxTTL, m_mainAddress);
+  dvMessage.SetHelloReq(Ipv4Address::GetAny(), helloMessage);
+  pkt->AddHeader(dvMessage);
+  BroadcastPacket(pkt);
+}
+
+
+
+// void DVRoutingProtocol::AddNeighbor(uint32_t nodeNum, Ipv4Address neighborAddr, Ipv4Address interfaceAddr)
+// {
+//     // Add to neighbor table
+//     NeighborTableEntry entry = {neighborAddr, interfaceAddr};
+//     m_neighbors[nodeNum] = entry;
+// }
 
 bool DVRoutingProtocol::IsOwnAddress(Ipv4Address originatorAddress)
 {
@@ -526,88 +590,100 @@ uint32_t DVRoutingProtocol::GetNextSequenceNumber()
 
 void DVRoutingProtocol::NotifyInterfaceUp(uint32_t interface)
 {
-    if (m_mainAddress == Ipv4Address())
-    {
-        m_mainAddress = m_ipv4->GetAddress(interface, 0).GetLocal();
-    }
+    m_staticRouting->NotifyInterfaceUp(interface);
+    // if (m_mainAddress == Ipv4Address())
+    // {
+    //     m_mainAddress = m_ipv4->GetAddress(interface, 0).GetLocal();
+    // }
 
-    if (m_staticRouting == 0)
-    {
-        m_staticRouting = Create<Ipv4StaticRouting>();
-    }
+    // if (m_staticRouting == 0)
+    // {
+    //     m_staticRouting = Create<Ipv4StaticRouting>();
+    // }
 
-    Ipv4Address address = m_ipv4->GetAddress(interface, 0).GetLocal();
+    // Ipv4Address address = m_ipv4->GetAddress(interface, 0).GetLocal();
 
-    for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator i =
-             m_socketAddresses.begin();
-         i != m_socketAddresses.end(); i++)
-    {
-        Ipv4InterfaceAddress interfaceAddr = i->second;
-        if (address == interfaceAddr.GetLocal())
-        {
-            return;
-        }
-    }
+    // for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator i =
+    //          m_socketAddresses.begin();
+    //      i != m_socketAddresses.end(); i++)
+    // {
+    //     Ipv4InterfaceAddress interfaceAddr = i->second;
+    //     if (address == interfaceAddr.GetLocal())
+    //     {
+    //         return;
+    //     }
+    // }
 
-    Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(), UdpSocketFactory::GetTypeId());
-    socket->SetAllowBroadcast(true);
-    InetSocketAddress inetAddr(address, m_dvPort);
-    socket->SetRecvCallback(MakeCallback(&DVRoutingProtocol::RecvDVMessage, this));
-    if (socket->Bind(inetAddr))
-    {
-        NS_FATAL_ERROR("DVRoutingProtocol::NotifyInterfaceUp::Failed to bind socket!");
-    }
-    socket->BindToNetDevice(m_ipv4->GetNetDevice(interface));
-    m_socketAddresses[socket] = m_ipv4->GetAddress(interface, 0);
+    // Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(), UdpSocketFactory::GetTypeId());
+    // socket->SetAllowBroadcast(true);
+    // InetSocketAddress inetAddr(address, m_dvPort);
+    // socket->SetRecvCallback(MakeCallback(&DVRoutingProtocol::RecvDVMessage, this));
+    // if (socket->Bind(inetAddr))
+    // {
+    //     NS_FATAL_ERROR("DVRoutingProtocol::NotifyInterfaceUp::Failed to bind socket!");
+    // }
+    // socket->BindToNetDevice(m_ipv4->GetNetDevice(interface));
+    // m_socketAddresses[socket] = m_ipv4->GetAddress(interface, 0);
 }
 
 void DVRoutingProtocol::NotifyInterfaceDown(uint32_t interface)
 {
-    Ipv4Address address = m_ipv4->GetAddress(interface, 0).GetLocal();
+    m_staticRouting->NotifyInterfaceDown(interface);
+    // Ipv4Address address = m_ipv4->GetAddress(interface, 0).GetLocal();
 
-    for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::iterator i = m_socketAddresses.begin(); i != m_socketAddresses.end(); i++)
-    {
-        Ipv4InterfaceAddress interfaceAddr = i->second;
-        if (address == interfaceAddr.GetLocal())
-        {
-            i->first->Close();
-            m_socketAddresses.erase(i);
-            break;
-        }
-    }
+    // for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::iterator i = m_socketAddresses.begin(); i != m_socketAddresses.end(); i++)
+    // {
+    //     Ipv4InterfaceAddress interfaceAddr = i->second;
+    //     if (address == interfaceAddr.GetLocal())
+    //     {
+    //         i->first->Close();
+    //         m_socketAddresses.erase(i);
+    //         break;
+    //     }
+    // }
 }
 
 void DVRoutingProtocol::NotifyAddAddress(uint32_t interface, Ipv4InterfaceAddress address)
 {
-    Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(), UdpSocketFactory::GetTypeId());
-    socket->SetAllowBroadcast(true);
-    InetSocketAddress inetAddr(address.GetLocal(), m_dvPort);
-    socket->SetRecvCallback(MakeCallback(&DVRoutingProtocol::RecvDVMessage, this));
-    if (socket->Bind(inetAddr))
-    {
-        NS_FATAL_ERROR("DVRoutingProtocol::NotifyAddAddress::Failed to bind socket!");
-    }
-    socket->BindToNetDevice(m_ipv4->GetNetDevice(interface));
-    m_socketAddresses[socket] = address;
+     m_staticRouting->NotifyAddAddress(interface, address);
+
+    // Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(), UdpSocketFactory::GetTypeId());
+    // socket->SetAllowBroadcast(true);
+    // InetSocketAddress inetAddr(address.GetLocal(), m_dvPort);
+    // socket->SetRecvCallback(MakeCallback(&DVRoutingProtocol::RecvDVMessage, this));
+    // if (socket->Bind(inetAddr))
+    // {
+    //     NS_FATAL_ERROR("DVRoutingProtocol::NotifyAddAddress::Failed to bind socket!");
+    // }
+    // socket->BindToNetDevice(m_ipv4->GetNetDevice(interface));
+    // m_socketAddresses[socket] = address;
 }
 
 void DVRoutingProtocol::NotifyRemoveAddress(uint32_t interface, Ipv4InterfaceAddress address)
 {
-    for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::iterator i = m_socketAddresses.begin(); i != m_socketAddresses.end(); i++)
-    {
-        Ipv4InterfaceAddress interfaceAddr = i->second;
-        if (address == interfaceAddr.GetLocal())
-        {
-            i->first->Close();
-            m_socketAddresses.erase(i);
-            break;
-        }
-    }
+    m_staticRouting->NotifyRemoveAddress(interface, address);
+    // for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::iterator i = m_socketAddresses.begin(); i != m_socketAddresses.end(); i++)
+    // {
+    //     Ipv4InterfaceAddress interfaceAddr = i->second;
+    //     if (address == interfaceAddr.GetLocal())
+    //     {
+    //         i->first->Close();
+    //         m_socketAddresses.erase(i);
+    //         break;
+    //     }
+    // }
 }
 
 void DVRoutingProtocol::SetIpv4(Ptr<Ipv4> ipv4)
 {
     NS_ASSERT(ipv4 != 0);
     NS_ASSERT(m_ipv4 == 0);
-    m_ipv4 = ipv4;
+    NS_LOG_DEBUG("Created dv::RoutingProtocol");
+    // m_ipv4 = ipv4;
+
+      // Configure timers
+  m_auditPingsTimer.SetFunction(&DVRoutingProtocol::AuditPings, this);
+  m_auditNeighborsTimer.SetFunction(&DVRoutingProtocol::AuditNeighbors, this);
+  m_ipv4 = ipv4;
+  m_staticRouting->SetIpv4(m_ipv4);
 }
