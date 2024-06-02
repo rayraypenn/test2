@@ -16,6 +16,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+
+//NO MODIFICAITONS 
 #ifndef LS_ROUTING_HELPER_H
 #define LS_ROUTING_HELPER_H
 
@@ -26,6 +28,7 @@
 #include "ns3/object-factory.h"
 
 using namespace ns3;
+
 
 class LSRoutingHelper : public Ipv4RoutingHelper
 {
@@ -46,3 +49,5 @@ private:
 };
 
 #endif
+
+//~ resolve buggy push

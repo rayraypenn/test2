@@ -13,7 +13,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-
+#include "ns3/timer.h"
 #include "ns3/dv-message.h"
 #include "ns3/log.h"
 
@@ -22,24 +22,18 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("DVMessage");
 NS_OBJECT_ENSURE_REGISTERED (DVMessage);
 
-DVMessage::DVMessage ()
-{
-}
+DVMessage::DVMessage () {}
 
-DVMessage::~DVMessage ()
-{
-}
+DVMessage::~DVMessage () { }
 
-DVMessage::DVMessage (DVMessage::MessageType messageType, uint32_t sequenceNumber, uint8_t ttl, Ipv4Address originatorAddress)
-{
+DVMessage::DVMessage (DVMessage::MessageType messageType, uint32_t sequenceNumber, uint8_t ttl, Ipv4Address originatorAddress) {
   m_messageType = messageType;
   m_sequenceNumber = sequenceNumber;
   m_ttl = ttl;
   m_originatorAddress = originatorAddress;
 }
 
-TypeId 
-DVMessage::GetTypeId (void)
+TypeId DVMessage::GetTypeId (void)
 {
   static TypeId tid = TypeId ("DVMessage")
     .SetParent<Header> ()
@@ -48,15 +42,13 @@ DVMessage::GetTypeId (void)
   return tid;
 }
 
-TypeId
-DVMessage::GetInstanceTypeId (void) const
+TypeId DVMessage::GetInstanceTypeId (void) const
 {
   return GetTypeId ();
 }
 
 
-uint32_t
-DVMessage::GetSerializedSize (void) const
+uint32_t DVMessage::GetSerializedSize (void) const
 {
   // size of messageType, sequence number, originator address, ttl
   uint32_t size = sizeof (uint8_t) + sizeof (uint32_t) + IPV4_ADDRESS_SIZE + sizeof (uint8_t);
@@ -67,6 +59,12 @@ DVMessage::GetSerializedSize (void) const
         break;
       case PING_RSP:
         size += m_message.pingRsp.GetSerializedSize ();
+        break;
+      case HELLO_REQ:
+        size += m_message.helloReq.GetSerializedSize ();
+        break;
+      case HELLO_RSP:
+        size += m_message.helloRsp.GetSerializedSize ();
         break;
       default:
         NS_ASSERT (false);
@@ -92,14 +90,19 @@ DVMessage::Print (std::ostream &os) const
       case PING_RSP:
         m_message.pingRsp.Print (os);
         break;
+      case HELLO_REQ:
+        m_message.helloReq.Print (os);
+        break;
+      case HELLO_RSP:
+        m_message.helloRsp.Print (os);
+        break;
       default:
         break;  
     }
   os << "\n****END OF MESSAGE****\n";
 }
 
-void
-DVMessage::Serialize (Buffer::Iterator start) const
+void DVMessage::Serialize (Buffer::Iterator start) const
 {
   Buffer::Iterator i = start;
   i.WriteU8 (m_messageType);
@@ -117,11 +120,16 @@ DVMessage::Serialize (Buffer::Iterator start) const
         break;
       default:
         NS_ASSERT (false);   
+      case HELLO_REQ:
+        m_message.helloReq.Serialize (i);
+        break;
+      case HELLO_RSP:
+        m_message.helloRsp.Serialize (i);
+        break;
     }
 }
 
-uint32_t 
-DVMessage::Deserialize (Buffer::Iterator start)
+uint32_t DVMessage::Deserialize (Buffer::Iterator start)
 {
   uint32_t size;
   Buffer::Iterator i = start;
@@ -139,6 +147,12 @@ DVMessage::Deserialize (Buffer::Iterator start)
         break;
       case PING_RSP:
         size += m_message.pingRsp.Deserialize (i);
+        break;
+      case HELLO_REQ:
+        size += m_message.helloReq.Deserialize (i);
+        break;
+      case HELLO_RSP:
+        size += m_message.helloRsp.Deserialize (i);
         break;
       default:
         NS_ASSERT (false);
@@ -216,7 +230,7 @@ DVMessage::PingRsp::GetSerializedSize (void) const
 void
 DVMessage::PingRsp::Print (std::ostream &os) const
 {
-  os << "PingReq:: Message: " << pingMessage << "\n";
+  os << "PingRsp:: Message: " << pingMessage << "\n";
 }
 
 void
@@ -260,10 +274,108 @@ DVMessage::GetPingRsp ()
   return m_message.pingRsp;
 }
 
+//hello request 
 
-//
-//
-//
+uint32_t 
+DVMessage::HelloReq::GetSerializedSize (void) const
+{
+    uint32_t size;
+    size = IPV4_ADDRESS_SIZE + sizeof(uint16_t) + helloMsg.length();
+    return size;
+}
+
+void DVMessage::HelloReq::Print (std::ostream &os) const
+{
+  os << "HelloReq:: Message: " << helloMsg << "\n";
+}
+
+void DVMessage::HelloReq::Serialize (Buffer::Iterator &start) const
+{
+  start.WriteHtonU32(destinationAddress.Get ());
+  start.WriteU16(helloMsg.length());
+  start.Write((uint8_t *)(const_cast<char *>(helloMsg.c_str())), helloMsg.length());
+}
+
+uint32_t DVMessage::HelloReq::Deserialize (Buffer::Iterator &start)
+{  
+    destinationAddress = Ipv4Address(start.ReadNtohU32());
+    uint16_t length = start.ReadU16();
+    char *str = (char *) malloc(length);
+    start.Read((uint8_t *)str, length);
+    helloMsg = std::string(str, length);
+    free(str);
+    return HelloReq::GetSerializedSize();
+}
+
+void DVMessage::SetHelloReq(Ipv4Address destinationAddress, std::string helloMessage)
+{
+    if (m_messageType == 0)
+    {
+        m_messageType = HELLO_REQ;
+    }
+    else
+    {
+        NS_ASSERT(m_messageType == HELLO_REQ);
+    }
+    m_message.helloReq.destinationAddress = destinationAddress;
+    m_message.helloReq.helloMsg = helloMessage;
+}
+
+DVMessage::HelloReq DVMessage::GetHelloReq()
+{
+    return m_message.helloReq;
+}
+
+
+//RESPONSE
+uint32_t DVMessage::HelloRsp::GetSerializedSize(void) const
+{
+    uint32_t size;
+    size = IPV4_ADDRESS_SIZE + sizeof(uint16_t) + helloMsg.length();
+    return size;
+}
+
+void DVMessage::HelloRsp::Print(std::ostream &os) const
+{
+    os << "HelloRsp:: Message: " << helloMsg << "\n";
+}
+
+void DVMessage::HelloRsp::Serialize(Buffer::Iterator &start) const
+{
+    start.WriteHtonU32(destinationAddress.Get());
+    start.WriteU16(helloMsg.length());
+    start.Write((uint8_t *)(const_cast<char *>(helloMsg.c_str())), helloMsg.length());
+}
+
+uint32_t DVMessage::HelloRsp::Deserialize(Buffer::Iterator &start)
+{
+    destinationAddress = Ipv4Address(start.ReadNtohU32());
+    uint16_t length = start.ReadU16();
+    char *str = (char *)malloc(length);
+    start.Read((uint8_t *)str, length);
+    helloMsg = std::string(str, length);
+    free(str);
+    return HelloRsp::GetSerializedSize();
+}
+
+void DVMessage::SetHelloRsp(Ipv4Address destinationAddress, std::string helloMessage)
+{
+    if (m_messageType == 0)
+    {
+        m_messageType = HELLO_RSP;
+    }
+    else
+    {
+        NS_ASSERT(m_messageType == HELLO_RSP);
+    }
+    m_message.helloRsp.destinationAddress = destinationAddress;
+    m_message.helloRsp.helloMsg = helloMessage;
+}
+
+DVMessage::HelloRsp DVMessage::GetHelloRsp()
+{
+    return m_message.helloRsp;
+}
 
 void
 DVMessage::SetMessageType (MessageType messageType)
@@ -313,3 +425,4 @@ DVMessage::GetOriginatorAddress (void) const
   return m_originatorAddress;
 }
 
+//~ resolve buggy push
