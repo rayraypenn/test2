@@ -36,6 +36,7 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <cstdio>
 #include <map>
 #include <optional>
 #include <poll.h>
@@ -497,7 +498,8 @@ struct Daemon {
       pkt.clear();
       push(&hdr, sizeof(hdr));
       size_t count = 0;
-      for (; idx < routes.size() && count < 25; ++idx, ++count) {
+      const size_t max_rtes = cfg.password.empty() ? 25 : 24;
+      for (; idx < routes.size() && count < max_rtes; ++idx, ++count) {
         const RouteEntry& re = routes[idx];
         RipRte rte{};
         rte.afi = htons(RIP_AF_INET);
