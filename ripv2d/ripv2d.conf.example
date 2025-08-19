@@ -1,0 +1,13 @@
+# ripv2d example configuration
+
+# If non-empty, only these interfaces are used (comma-separated)
+interfaces=
+
+# Interfaces to treat as passive (listen only, no outbound updates)
+passive_interfaces=
+
+# RIPv2 simple password (max 16 bytes). Leave empty to disable auth.
+password=
+
+# Log level: debug, info, warn, error
+log_level=info
