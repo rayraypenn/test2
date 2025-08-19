@@ -262,6 +262,7 @@ public:
     req.rtm.rtm_protocol = RTPROT_RIP;
     req.rtm.rtm_scope = RT_SCOPE_UNIVERSE;
     req.rtm.rtm_type = (metric >= RIP_METRIC_INFINITY) ? RTN_UNREACHABLE : RTN_UNICAST;
+    req.rtm.rtm_flags = 0;
 
     auto addattr = [&](uint16_t type, const void* data, size_t len){
       struct rtattr* rta = (struct rtattr*)((char*)&req + req.nlh.nlmsg_len);
@@ -301,6 +302,7 @@ public:
     req.rtm.rtm_family = AF_INET;
     req.rtm.rtm_dst_len = mask_len(mask);
     req.rtm.rtm_table = RT_TABLE_MAIN;
+    req.rtm.rtm_flags = 0;
 
     auto addattr = [&](uint16_t type, const void* data, size_t len){
       struct rtattr* rta = (struct rtattr*)((char*)&req + req.nlh.nlmsg_len);

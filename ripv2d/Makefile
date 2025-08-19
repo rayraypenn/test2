@@ -5,6 +5,7 @@ CXX ?= g++
 CXXFLAGS ?= -O2 -g -std=gnu++17 -Wall -Wextra -Wpedantic -Wno-psabi
 LDFLAGS ?=
 LIBS = 
+PREFIX ?= /usr/local
 
 # We need Linux-specific netlink headers and linkage (no extra libs needed)
 # Add pthread for future extensions if needed
