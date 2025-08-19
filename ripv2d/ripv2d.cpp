@@ -476,10 +476,12 @@ struct Daemon {
       dst.sin_addr.s_addr = htonl(RIP_MCAST);
     }
     // Set outbound interface for multicast
-    in_addr out_if{};
-    out_if.s_addr = htonl(iface.addr);
-    if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, &out_if, sizeof(out_if)) < 0) {
-      LOG(LogLevel::WARN, "IP_MULTICAST_IF " << iface.name << " failed: " << strerror(errno));
+    if (unicast == nullptr) {
+      in_addr out_if{};
+      out_if.s_addr = htonl(iface.addr);
+      if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, &out_if, sizeof(out_if)) < 0) {
+        LOG(LogLevel::WARN, "IP_MULTICAST_IF " << iface.name << " failed: " << strerror(errno));
+      }
     }
 
     // Build response packets up to 25 RTEs each
@@ -526,8 +528,11 @@ struct Daemon {
         uint8_t authbuf[16] = {0};
         memcpy(authbuf, cfg.password.data(), std::min(cfg.password.size(), sizeof(authbuf)));
         // Grow packet and shift existing RTEs
-        pkt.resize(pkt.size() + sizeof(RipRte));
-        memmove(pkt.data()+sizeof(hdr)+sizeof(RipRte), pkt.data()+sizeof(hdr), pkt.size()-sizeof(hdr)-sizeof(RipRte));
+        size_t old_size = pkt.size();
+        pkt.resize(old_size + sizeof(RipRte));
+        memmove(pkt.data() + sizeof(hdr) + sizeof(RipRte),
+                pkt.data() + sizeof(hdr),
+                old_size - sizeof(hdr));
         memcpy(pkt.data()+sizeof(hdr), &auth, sizeof(auth));
         // Copy password starting at offset 4 within the auth RTE (over ip..metric fields)
         memcpy(pkt.data()+sizeof(hdr)+4, authbuf, 16);
@@ -592,12 +597,15 @@ struct Daemon {
       if (ntohs(first->afi) == RIP_AUTH_AFI) {
         uint16_t type = ntohs(first->route_tag);
         if (type == 2) {
-          // simple password: 16 bytes start at ip field
+          // simple password: compare full 16 bytes (accept NUL- or space-padded)
           if (!cfg.password.empty()) {
-            char pw[17]; memset(pw, 0, sizeof(pw));
-            memcpy(pw, buf + off + 4, 16);
-            std::string got(pw, strnlen(pw, 16));
-            if (got != cfg.password) {
+            uint8_t remote[16]; memcpy(remote, buf + off + 4, 16);
+            uint8_t expect_nul[16]; memset(expect_nul, 0, sizeof(expect_nul));
+            uint8_t expect_spc[16]; memset(expect_spc, ' ', sizeof(expect_spc));
+            size_t pwlen = std::min<size_t>(cfg.password.size(), 16);
+            memcpy(expect_nul, cfg.password.data(), pwlen);
+            memcpy(expect_spc, cfg.password.data(), pwlen);
+            if (memcmp(remote, expect_nul, 16) != 0 && memcmp(remote, expect_spc, 16) != 0) {
               LOG(LogLevel::WARN, "Auth failed from " << ip4_to_str(src_ip) << " on " << rx_if.name);
               return;
             }
